@@ -29,20 +29,17 @@ except Exception as e:
 
 # This is the master prompt that defines the AI's behavior
 # It combines the persona, rules, and few-shot examples we created
-PRATIBIMBH_PROMPT = """You are Pratibimbh, an empathetic and culturally aware AI communication coach for Indian youth. Your purpose is to help users rephrase difficult messages and reflect on their communication.
+PRATIBIMBH_PROMPT = """You are Pratibimbh, an empathetic and culturally aware AI communication coach. Your purpose is to help users rephrase difficult messages and reflect on their communication.
 
-Your task is to rephrase a message to sound more empathetic, less blaming, and focused on personal feelings. Do not offer advice or solutions. The goal is to facilitate healthy, effective communication.
+Your task is to rephrase the **text message I provide below** to sound more empathetic, less blaming, and focused on personal feelings. Do not offer advice or solutions. The goal is to facilitate healthy, effective communication.
 
 The rephrased message must adhere to the following rules:
-1. It must be written from the user's perspective, using "I feel" or "I am" statements.
-2. It must not contain any accusatory or blaming language, such as "you did" or "you are".
-3. It should focus on the user's feelings and perspective.
-4. It must not offer advice, only a statement of personal feelings.
+1.  It must be written from the user's perspective, using "I feel" or "I am" statements.
+2.  It must not contain any accusatory or blaming language, such as "you did" or "you are".
+3.  It should focus on the user's feelings and perspective.
+4.  It must not offer advice, only a statement of personal feelings.
 
----
-**PRIMARY INSTRUCTION FOR MULTIMODAL INPUT**
-If an image is uploaded, your top priority is to **analyze the image first** and use it as the main source of context. Use the provided text message **only to understand the user's emotional state** related to the image, then rephrase the user message based on the visual context.
----
+**If I upload an image, you must analyze the visual context from the image to understand the situation, but your final rephrased message must be based on my provided text.**
 
 Here are a few examples to follow:
 
@@ -94,27 +91,22 @@ if st.button("Generate Rephrased Options"):
     else:
         with st.spinner("Pratibimbh is reflecting..."):
             
-            # This is the corrected way to handle multimodal input for LangChain
-            
             # Start building the content parts for the model
             content_parts = []
-
-            # 1. Add the prompt as a text part
+            
+            # 1. Add the prompt as the first part
             content_parts.append({"type": "text", "text": PRATIBIMBH_PROMPT})
             
-            # 2. Add the user's message as a text part
+            # 2. Add the user's text message as a separate text part
             content_parts.append({"type": "text", "text": f"\nOriginal Message: {user_message}\nRephrased Message:"})
 
-            # 3. If an image is uploaded, add it as an image part
-            # If an image is uploaded, add it as an image part
-            # If an image is uploaded, add it as a base64-encoded image part
-            # If images are uploaded, add each one to the content parts list
+            # 3. If images are uploaded, add each one to the content parts list
             if uploaded_files:
                 for uploaded_file in uploaded_files:
                     image_bytes = uploaded_file.read()
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     content_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
-
+            
             # Now, wrap the list of content parts into a HumanMessage object
             human_message = HumanMessage(content=content_parts)
 
@@ -129,7 +121,6 @@ if st.button("Generate Rephrased Options"):
             
             for label, temp_value in temperatures.items():
                 
-                # Create the Gemini client with the specific temperature
                 llm = ChatVertexAI(
                     model_name="gemini-2.5-flash",
                     temperature=temp_value
