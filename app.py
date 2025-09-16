@@ -1,95 +1,166 @@
 import streamlit as st
 import vertexai
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from PIL import Image
+import PIL.Image
 import io
+import base64
+from langchain_core.messages import HumanMessage
 
-# Initialize Vertex AI with supported region
-vertexai.init(project="bridgeai-470813", location="us-east1")
+# -----------------------------------------------------------
+# Core Project Configuration
+# -----------------------------------------------------------
 
-# Use the up-to-date Gemini model
-llm = ChatVertexAI(
-    model="gemini-2.5-flash",  # Latest stable fast model
-    project="bridgeai-470813",
-    location="us-east1",
-    temperature=0.2,
+# Replace with your actual Google Cloud Project ID and Region
+# Ensure you've completed all setup steps (gcloud auth, API enablement, IAM roles)
+PROJECT_ID = "bridgeai-470813"
+REGION = "us-central1"
+
+# Initialize Vertex AI
+try:
+    vertexai.init(project=PROJECT_ID, location=REGION)
+except Exception as e:
+    st.error(f"Error initializing Vertex AI. Please check your project ID, region, and credentials. Full error: {e}")
+    st.stop()
+
+
+# -----------------------------------------------------------
+# AI Model & Prompt Design
+# -----------------------------------------------------------
+
+# This is the master prompt that defines the AI's behavior
+# It combines the persona, rules, and few-shot examples we created
+PRATIBIMBH_PROMPT = """You are Pratibimbh, an empathetic and culturally aware AI communication coach for Indian youth. Your purpose is to help users rephrase difficult messages and reflect on their communication.
+
+Your task is to rephrase a message to sound more empathetic, less blaming, and focused on personal feelings. Do not offer advice or solutions. The goal is to facilitate healthy, effective communication.
+
+The rephrased message must adhere to the following rules:
+1. It must be written from the user's perspective, using "I feel" or "I am" statements.
+2. It must not contain any accusatory or blaming language, such as "you did" or "you are".
+3. It should focus on the user's feelings and perspective.
+4. It must not offer advice, only a statement of personal feelings.
+
+---
+**PRIMARY INSTRUCTION FOR MULTIMODAL INPUT**
+If an image is uploaded, your top priority is to **analyze the image first** and use it as the main source of context. Use the provided text message **only to understand the user's emotional state** related to the image, then rephrase the user message based on the visual context.
+---
+
+Here are a few examples to follow:
+
+Original Message: "You never listen to me. I'm tired of you always ignoring my feelings."
+Rephrased Message: "I feel unheard when I try to express my feelings. I'm tired of feeling like my emotions are being ignored."
+
+Original Message: "I'm always the one who has to clean up your mess. You never appreciate anything I do."
+Rephrased Message: "I feel like my efforts are going unnoticed, and I'm feeling overwhelmed by the responsibility of a shared space."
+
+Original Message: "I'm so sick of this. I've done everything for everyone, and I'm at my breaking point."
+Rephrased Message: "I'm feeling completely exhausted and overwhelmed, and I need to express my feelings before I reach my breaking point."
+
+Original Message: {user_input}
+Rephrased Message:
+"""
+
+
+# -----------------------------------------------------------
+# Streamlit UI & Application Logic
+# -----------------------------------------------------------
+
+st.set_page_config(
+    page_title="Pratibimbh: The AI Reflection",
+    page_icon="🧘‍♀️"
 )
 
-# Streamlit UI
-st.set_page_config(layout="wide")
-st.title("Bridge AI 🤝")
-st.markdown("Rephrase your thoughts to build bridges, not walls.")
-st.divider()
+st.title("Pratibimbh 🧘‍♀️")
+st.markdown("An AI-powered communication coach for self-reflection and well-being.")
 
-# Text Rephraser
-st.subheader("Text Rephraser")
-user_message = st.text_area("Enter a message you want to rephrase:")
+st.markdown("---")
+st.subheader("Your Message & Context")
 
-if st.button("Rephrase Message"):
-    if user_message:
-        with st.spinner("Rephrasing..."):
-            response = llm.invoke([
-                SystemMessage(content=(
-                    """You are an empathetic communication assistant. Your task is to rephrase a message from a user to a person they are in conflict with.
+user_message = st.text_area(
+    "1. **Type your message below.**",
+    placeholder="e.g., I'm so angry with you! Why did you do that without telling me?",
+    height=150
+)
 
-                    The rephrased message must adhere to the following rules:
-                    1.  It must be written from the user's perspective, using \"I feel\" or \"I am\" statements.
-                    2.  It must not contain any accusatory or blaming language, such as \"you did\" or \"you are\".
-                    3.  It should focus on the user's feelings and perspective.
-                    4.  It must not offer advice, only a statement of personal feelings.
-
-                    Here are a few example to follow:
-
-                    Original Message: \"You never listen to me. I'm tired of you always ignoring my feelings.\"
-                    Rephrased Message: \"I feel unheard when I try to express my feelings. I'm tired of feeling like my emotions are being ignored.\"
-
-                    Original Message: \"I'm always the one who has to clean up your mess. You never appreciate anything I do.\"
-                    Rephrased Message: \"I feel like my efforts are going unnoticed, and I'm feeling overwhelmed by the responsibility of a shared space.\"
-
-                    Original Message: \"Why do you always have to tell me what to do? You treat me like a child and I can't stand it.\"
-                    Rephrased Message: \"I feel like my decisions aren't being trusted, and I'm struggling with a feeling of being controlled.\"
-
-                    Original Message: \"You never have time for me. It's like I'm not important to you anymore.\"
-                    Rephrased Message: \"I've been feeling disconnected from you, and I miss spending quality time together. I'm afraid that I'm not as important to you as I used to be.\"
-
-                    Original Message: \"I'm so sick of this. I've done everything for everyone, and I'm at my breaking point.\"
-                    Rephrased Message: \"I'm feeling completely exhausted and overwhelmed, and I need to express my feelings before I reach my breaking point.\""""
-                )),
-                HumanMessage(content=user_message)
-            ])
-            st.subheader("Your New Message:")
-            st.markdown(f"**{response.content}**")
-
-st.divider()
-
-# Multimodal RAG (Image + Text)
-st.subheader("Family Album Insight (Multimodal Analysis)")
-st.markdown("Upload a photo to get a thoughtful conversation starter.")
-uploaded_file = st.file_uploader(
-    "Upload a family photo",
+uploaded_files = st.file_uploader(
+    "2. (Optional) Upload one or more screenshots of the conversation for context.",
     type=["png", "jpg", "jpeg"],
-    label_visibility="collapsed"
+    accept_multiple_files=True # This is the key change!
 )
 
-if uploaded_file:
-    image_data = uploaded_file.read()
-    image = Image.open(io.BytesIO(image_data))
-    st.image(image, use_column_width=True)
-    st.success("Photo uploaded.")
+st.markdown("---")
+if st.button("Generate Rephrased Options"):
+    if not user_message:
+        st.error("Please enter a message to get a rephrased option.")
+    else:
+        with st.spinner("Pratibimbh is reflecting..."):
+            
+            # This is the corrected way to handle multimodal input for LangChain
+            
+            # Start building the content parts for the model
+            content_parts = []
 
-    prompt_for_image = st.text_area("What conversation would you like to have about this photo?")
+            # 1. Add the prompt as a text part
+            content_parts.append({"type": "text", "text": PRATIBIMBH_PROMPT})
+            
+            # 2. Add the user's message as a text part
+            content_parts.append({"type": "text", "text": f"\nOriginal Message: {user_message}\nRephrased Message:"})
 
-    if st.button("Get Multimodal Conversation Starter") and prompt_for_image:
-        with st.spinner("Generating conversation starter..."):
-            multimodal_response = llm.invoke([
-                SystemMessage(content=(
-                    "You are an empathetic assistant helping families connect over their photos."
-                )),
-                HumanMessage(content=[
-                    {"type": "text", "text": prompt_for_image},
-                    {"type": "image_bytes", "data": image_data, "mime_type": "image/jpeg"}
-                ])
-            ])
-            st.subheader("Conversation Starter:")
-            st.markdown(f"**{multimodal_response.content}**")
+            # 3. If an image is uploaded, add it as an image part
+            # If an image is uploaded, add it as an image part
+            # If an image is uploaded, add it as a base64-encoded image part
+            # If images are uploaded, add each one to the content parts list
+            if uploaded_files:
+                for uploaded_file in uploaded_files:
+                    image_bytes = uploaded_file.read()
+                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    content_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
+
+            # Now, wrap the list of content parts into a HumanMessage object
+            human_message = HumanMessage(content=content_parts)
+
+            # Define the different temperature settings
+            temperatures = {
+                "Balanced & Direct": 0.2, 
+                "Empathetic & Nuanced": 0.6, 
+                "Creative & Expressive": 0.9
+            }
+            
+            all_options = []
+            
+            for label, temp_value in temperatures.items():
+                
+                # Create the Gemini client with the specific temperature
+                llm = ChatVertexAI(
+                    model_name="gemini-2.5-flash",
+                    temperature=temp_value
+                )
+                
+                # Make the API call with the correctly formatted HumanMessage
+                response = llm.invoke([human_message])
+                
+                # Store the result with a label
+                all_options.append((label, response.content))
+        
+        if all_options:
+            st.subheader("3. Choose Your Preferred Reflection")
+            
+            options_for_radio = [f"**{label}:**\n\n{content}" for label, content in all_options]
+            selected_option_text = st.radio(
+                "Select the message that best reflects your feelings:",
+                options_for_radio
+            )
+
+            final_message = selected_option_text.split(":", 1)[1].strip()
+            
+            st.success("Your message is ready!")
+            st.code(final_message)
+            
+            st.download_button(
+                label="Download Rephrased Message",
+                data=final_message,
+                file_name="pratibimbh_message.txt",
+                mime="text/plain"
+            )
+            
+        else:
+            st.error("Pratibimbh couldn't generate a response. Please try again.")
