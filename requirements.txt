@@ -1,0 +1,5 @@
+streamlit
+vertexai
+langchain-google-vertexai
+langchain-core
+Pillow

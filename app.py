@@ -85,73 +85,54 @@ uploaded_files = st.file_uploader(
 )
 
 st.markdown("---")
+if "rephrased_options" not in st.session_state:
+    st.session_state.rephrased_options = []
+
 if st.button("Generate Rephrased Options"):
     if not user_message:
         st.error("Please enter a message to get a rephrased option.")
     else:
         with st.spinner("Pratibimbh is reflecting..."):
             
-            # Start building the content parts for the model
             content_parts = []
-            
-            # 1. Add the prompt as the first part
             content_parts.append({"type": "text", "text": PRATIBIMBH_PROMPT})
-            
-            # 2. Add the user's text message as a separate text part
             content_parts.append({"type": "text", "text": f"\nOriginal Message: {user_message}\nRephrased Message:"})
 
-            # 3. If images are uploaded, add each one to the content parts list
             if uploaded_files:
                 for uploaded_file in uploaded_files:
                     image_bytes = uploaded_file.read()
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     content_parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}})
             
-            # Now, wrap the list of content parts into a HumanMessage object
             human_message = HumanMessage(content=content_parts)
 
-            # Define the different temperature settings
             temperatures = {
                 "Balanced & Direct": 0.2, 
                 "Empathetic & Nuanced": 0.6, 
                 "Creative & Expressive": 0.9
             }
             
-            all_options = []
+            # Create a temporary list for the current run
+            current_options = []
             
             for label, temp_value in temperatures.items():
-                
                 llm = ChatVertexAI(
                     model_name="gemini-2.5-flash",
                     temperature=temp_value
                 )
-                
-                # Make the API call with the correctly formatted HumanMessage
                 response = llm.invoke([human_message])
-                
-                # Store the result with a label
-                all_options.append((label, response.content))
-        
-        if all_options:
-            st.subheader("3. Choose Your Preferred Reflection")
+                current_options.append((label, response.content))
             
-            options_for_radio = [f"**{label}:**\n\n{content}" for label, content in all_options]
-            selected_option_text = st.radio(
-                "Select the message that best reflects your feelings:",
-                options_for_radio
-            )
+            # Store the generated options in session state
+            st.session_state.rephrased_options = current_options
 
-            final_message = selected_option_text.split(":", 1)[1].strip()
-            
-            st.success("Your message is ready!")
-            st.code(final_message)
-            
-            st.download_button(
-                label="Download Rephrased Message",
-                data=final_message,
-                file_name="pratibimbh_message.txt",
-                mime="text/plain"
-            )
-            
-        else:
-            st.error("Pratibimbh couldn't generate a response. Please try again.")
+# Display the radio buttons if options exist in session state
+if st.session_state.rephrased_options:
+    st.subheader("3. Choose Your Preferred Reflection")
+    
+    options_for_radio = [f"**{label}:**\n\n{content}" for label, content in st.session_state.rephrased_options]
+    
+    st.radio(
+        "Select the message that best reflects your feelings:",
+        options_for_radio
+    )
