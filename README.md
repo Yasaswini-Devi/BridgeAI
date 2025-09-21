@@ -1,7 +1,5 @@
 # Pratibimbh: An AI Communication Coach for Youth Mental Wellness
 
-### **Project by:** Team [Your Team Name]
-
 ## 💡 **Inspiration & Problem Statement**
 
 In a world driven by digital communication, Indian youth often face social and emotional challenges when navigating difficult conversations. The stigma around seeking mental health support, combined with the lack of tools to communicate feelings constructively, leads to heightened anxiety and unresolved conflicts. Pratibimbh was created to address this gap by providing a private, non-judgmental space to reflect on and rephrase messages.
@@ -34,7 +32,7 @@ In a world driven by digital communication, Indian youth often face social and e
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your_username/pratibimbh.git](https://github.com/your_username/pratibimbh.git)
+    git clone https://github.com/Yasaswini-Devi/BridgeAI(https://github.com/Yasaswini-Devi/BridgeAI)
     cd pratibimbh
     ```
 2.  **Create and activate a virtual environment:**
